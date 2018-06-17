@@ -5,6 +5,7 @@
 
 package com.sunway.test.excel;
 
+import com.sunway.test.file.FileUtils;
 import org.apache.poi.hssf.usermodel.*;
 import org.apache.poi.ss.usermodel.CellType;
 import org.apache.poi.ss.usermodel.CellValue;
@@ -16,15 +17,19 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 
 public class ExcelUtils {
 
     public static void main(String[] args) throws IOException {
-        CopyXlsToXlsx("/Users/vinson/Downloads/科技职业学院3#宿舍楼WLAN交资表.xls",null,false, 0);
+        List<File> filelist = FileUtils.getAllFiles("H:/documents/分析工作/交资表");
+        for(File file : filelist){
+            CopyXlsToXlsx(file.getAbsolutePath(),null,false, true, 0);
+        }
     }
 
     //从xls拷贝到xlsx
-    public static void CopyXlsToXlsx(String srcfilepath, String desfilename, boolean withformula, int sheetindex) throws IOException {
+    public static void CopyXlsToXlsx(String srcfilepath, String desfilename, boolean withformula, boolean delsrcfile, int sheetindex) throws IOException {
         //定义变量
         File excelfile = new File(srcfilepath);
         String savepath = null;
@@ -40,66 +45,17 @@ public class ExcelUtils {
         }else {
             savepath = excelfile.getParent() + "/" + desfilename;
         }
-        //创建工作簿
-        HSSFWorkbook xlsworkbook = new HSSFWorkbook(new FileInputStream(excelfile));
-        HSSFSheet xlssheet = xlsworkbook.getSheetAt(sheetindex);
-        XSSFWorkbook xlsxworkbook = new XSSFWorkbook();
-        XSSFSheet xlsxsheet = xlsxworkbook.createSheet(xlssheet.getSheetName());
-        //遍历工作表
-        for(int i = 0; i < xlssheet.getLastRowNum()+1; i++){
-            HSSFRow xlsrow = xlssheet.getRow(i);
-            XSSFRow xlsxrow = xlsxsheet.createRow(i);
-            for (int j = 0; j < xlsrow.getLastCellNum(); j++){
-                xlscell = xlsrow.getCell(j);
-                if(xlscell!=null) {
-                    xlsxcell = xlsxrow.createCell(j);
-                    xlsxcellstyle = xlsxworkbook.createCellStyle();
-                    xlscellstyle = xlscell.getCellStyle();
-                    xlsxcellfont = xlsxworkbook.createFont();
-                    xlscellfont = xlscellstyle.getFont(xlsworkbook);
-                    FormatCellStyle(xlscellstyle, xlsxcellstyle);
-                    FormatCellFont(xlscellfont, xlsxcellfont);
-                    xlsxcellstyle.setFont(xlsxcellfont);
-                    xlsxcell.setCellStyle(xlsxcellstyle);
-                    if (withformula) {
-                        CopyCellWithFormula(xlscell, xlsxcell);
-                    } else {
-                        CopyCellWithoutFormula(xlscell, xlsxcell, xlsworkbook);
-                    }
-                }
-            }
-        }
-        for (int i = 0; i < xlsxsheet.getRow(xlsxsheet.getTopRow()).getLastCellNum(); i++){
-            xlsxsheet.autoSizeColumn(i);
-        }
-        SaveXlsxWorkbook(xlsxworkbook,savepath);
-    }
-
-    //从xls拷贝到xlsx（扩展）
-    public static void CopyXlsToXlsx(String srcfilepath, String desfilename, boolean withformula) throws IOException {
-        //定义变量
-        File excelfile = new File(srcfilepath);
-        String savepath = excelfile.getParent()+"/"+desfilename;
-        ArrayList<HSSFSheet> xlssheetlist = new ArrayList<>();
-        HSSFRow xlsrow = null;
-        XSSFRow xlsxrow = null;
-        HSSFCell xlscell = null;
-        XSSFCell xlsxcell = null;
-        XSSFCellStyle xlsxcellstyle = null;
-        HSSFCellStyle xlscellstyle = null;
-        Font xlsxcellfont = null;
-        Font xlscellfont = null;
-        //创建工作簿
-        HSSFWorkbook xlsworkbook = new HSSFWorkbook(new FileInputStream(excelfile));
-        XSSFWorkbook xlsxworkbook = new XSSFWorkbook();
-        //遍历工作簿
-        xlssheetlist = ListSheets(xlsworkbook);
-        for(HSSFSheet xlssheet : xlssheetlist){
+        //判断xls
+        if(excelfile.getName().endsWith("xls")) {
+            //创建工作簿
+            HSSFWorkbook xlsworkbook = new HSSFWorkbook(new FileInputStream(excelfile));
+            HSSFSheet xlssheet = xlsworkbook.getSheetAt(sheetindex);
+            XSSFWorkbook xlsxworkbook = new XSSFWorkbook();
             XSSFSheet xlsxsheet = xlsxworkbook.createSheet(xlssheet.getSheetName());
             //遍历工作表
-            for(int i = 0; i < xlssheet.getLastRowNum()+1; i++){
-                xlsrow = xlssheet.getRow(i);
-                xlsxrow = xlsxsheet.createRow(i);
+            for (int i = 0; i < xlssheet.getLastRowNum() + 1; i++) {
+                HSSFRow xlsrow = xlssheet.getRow(i);
+                XSSFRow xlsxrow = xlsxsheet.createRow(i);
                 for (int j = 0; j < xlsrow.getLastCellNum(); j++) {
                     xlscell = xlsrow.getCell(j);
                     if (xlscell != null) {
@@ -120,11 +76,74 @@ public class ExcelUtils {
                     }
                 }
             }
-            for (int i = 0; i < xlsxsheet.getRow(xlsxsheet.getTopRow()).getLastCellNum(); i++){
+            for (int i = 0; i < xlsxsheet.getRow(xlsxsheet.getTopRow()).getLastCellNum(); i++) {
                 xlsxsheet.autoSizeColumn(i);
             }
+            SaveXlsxWorkbook(xlsxworkbook, savepath);
+            //删除源文件
+            if (delsrcfile == true) {
+                excelfile.deleteOnExit();
+            }
         }
-        SaveXlsxWorkbook(xlsxworkbook,savepath);
+    }
+
+    //从xls拷贝到xlsx（扩展）
+    public static void CopyXlsToXlsx(String srcfilepath, String desfilename, boolean withformula, boolean delsrcfile) throws IOException {
+        //定义变量
+        File excelfile = new File(srcfilepath);
+        String savepath = excelfile.getParent()+"/"+desfilename;
+        ArrayList<HSSFSheet> xlssheetlist = new ArrayList<>();
+        HSSFRow xlsrow = null;
+        XSSFRow xlsxrow = null;
+        HSSFCell xlscell = null;
+        XSSFCell xlsxcell = null;
+        XSSFCellStyle xlsxcellstyle = null;
+        HSSFCellStyle xlscellstyle = null;
+        Font xlsxcellfont = null;
+        Font xlscellfont = null;
+        //判断xls
+        if(excelfile.getName().endsWith("xls")) {
+            //创建工作簿
+            HSSFWorkbook xlsworkbook = new HSSFWorkbook(new FileInputStream(excelfile));
+            XSSFWorkbook xlsxworkbook = new XSSFWorkbook();
+            //遍历工作簿
+            xlssheetlist = ListSheets(xlsworkbook);
+            for (HSSFSheet xlssheet : xlssheetlist) {
+                XSSFSheet xlsxsheet = xlsxworkbook.createSheet(xlssheet.getSheetName());
+                //遍历工作表
+                for (int i = 0; i < xlssheet.getLastRowNum() + 1; i++) {
+                    xlsrow = xlssheet.getRow(i);
+                    xlsxrow = xlsxsheet.createRow(i);
+                    for (int j = 0; j < xlsrow.getLastCellNum(); j++) {
+                        xlscell = xlsrow.getCell(j);
+                        if (xlscell != null) {
+                            xlsxcell = xlsxrow.createCell(j);
+                            xlsxcellstyle = xlsxworkbook.createCellStyle();
+                            xlscellstyle = xlscell.getCellStyle();
+                            xlsxcellfont = xlsxworkbook.createFont();
+                            xlscellfont = xlscellstyle.getFont(xlsworkbook);
+                            FormatCellStyle(xlscellstyle, xlsxcellstyle);
+                            FormatCellFont(xlscellfont, xlsxcellfont);
+                            xlsxcellstyle.setFont(xlsxcellfont);
+                            xlsxcell.setCellStyle(xlsxcellstyle);
+                            if (withformula) {
+                                CopyCellWithFormula(xlscell, xlsxcell);
+                            } else {
+                                CopyCellWithoutFormula(xlscell, xlsxcell, xlsworkbook);
+                            }
+                        }
+                    }
+                }
+                for (int i = 0; i < xlsxsheet.getRow(xlsxsheet.getTopRow()).getLastCellNum(); i++) {
+                    xlsxsheet.autoSizeColumn(i);
+                }
+            }
+            SaveXlsxWorkbook(xlsxworkbook, savepath);
+            //删除源文件
+            if (delsrcfile == true) {
+                excelfile.deleteOnExit();
+            }
+        }
     }
 
     //列出工作簿中所有sheets
